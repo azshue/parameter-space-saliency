@@ -10,7 +10,7 @@ from data import load_file, filter_samples, apply_template, batchify
 
 CACHE_DIR = './cache'
 
-def main(args):
+def inference(args):
     ### set up the model
     tokenizer = AutoTokenizer.from_pretrained(args.bert_model_name, cache_dir=CACHE_DIR)
 
@@ -59,13 +59,13 @@ def main(args):
 
         # compute gradient profile
         gradients = torch.autograd.grad(loss, model.parameters(), create_graph=False, allow_unused = True)
-        print(len(gradients))
+        # print(len(gradients))
         naive_saliency = []
         for grad in gradients:
             if grad is not None:
                 naive_saliency.append(grad.view(-1))
         naive_saliency = torch.abs(torch.cat(naive_saliency))
-        print(naive_saliency.shape)
+        # print(naive_saliency.shape)
         
 
 if __name__=='__main__':
@@ -76,4 +76,4 @@ if __name__=='__main__':
     parser.add_argument('--batch_size', default=1, type=int)
     args = parser.parse_args()
 
-    main(args)
+    inference(args)
