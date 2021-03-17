@@ -7,6 +7,7 @@ from transformers import BertForMaskedLM, BertTokenizer, AutoTokenizer, AutoMode
 from datasets import load_dataset
 
 from data import load_file, filter_samples, apply_template, batchify
+from utils import sort_grads
 
 CACHE_DIR = './cache'
 
@@ -58,14 +59,11 @@ def inference(args):
         logits = outputs.logits
 
         # compute gradient profile
-        gradients = torch.autograd.grad(loss, model.parameters(), create_graph=False, allow_unused = True)
-        # print(len(gradients))
-        naive_saliency = []
-        for grad in gradients:
-            if grad is not None:
-                naive_saliency.append(grad.view(-1))
-        naive_saliency = torch.abs(torch.cat(naive_saliency))
-        # print(naive_saliency.shape)
+        # gradients = torch.autograd.grad(loss, model.parameters(), create_graph=False, allow_unused = True)
+        loss.backward()
+
+        saliency_profile = sort_grads(model, args.aggr)
+            
         
 
 if __name__=='__main__':
