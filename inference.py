@@ -31,6 +31,7 @@ def get_dataset_stats(all_samples, model, tokenizer, args):
         saliency_profile = sort_grads(model, args.aggr)
         
         if i == 0:
+            print(saliency_profile.shape)
             # oldM in Welford's method (https://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance/)
             testset_mean_sal_prev = torch.zeros_like(saliency_profile, dtype=torch.float64)
             testset_mean_sal = saliency_profile / float(i+1)
@@ -59,7 +60,7 @@ if __name__=='__main__':
     parser.add_argument('--dataset_name', default='/cmlscratch/manlis/data/LAMA/Squad/test.jsonl', type=str)
     parser.add_argument('--max_seq_length', default=1024, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
-    parser.add_argument('--aggr', default="naive", type=str, choice=['naive', 'column-wise'])
+    parser.add_argument('--aggr', default="naive", type=str, choices=['naive', 'column-wise'])
     args = parser.parse_args()
 
     ### set up the model
