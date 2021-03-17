@@ -99,7 +99,7 @@ def batchify(data, batch_size):
         masked_sentence = sample["masked_sentences"][0]
         current_samples_batch.append(sample)
         current_sentences_batches.append(masked_sentence)
-        current_label_batches.append(masked_sentence.replace("[MASK]", sample["obj_label"]))
+        current_label_batches.append(masked_sentence.replace("[MASK]", " {} ".format(sample["obj_label"])))
         c += 1
         if c >= batch_size:
             list_samples_batches.append(current_samples_batch)
