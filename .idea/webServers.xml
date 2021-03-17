@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="6cff2658-cc48-4665-99bf-f5679fbead60" name="vcherepa@cmlsub00.umiacs.umd.edu" url="http://vcherepa@cmlsub00.umiacs.umd.edu">
+        <fileTransfer rootFolder="/cmlscratch/vcherepa/rilevin/LM-saliency" accessType="SFTP" host="cmlsub00.umiacs.umd.edu" port="22" sshConfigId="dc0598d7-0fac-4355-a829-de3fab02ace0" sshConfig="vcherepa@cmlsub00.umiacs.umd.edu:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

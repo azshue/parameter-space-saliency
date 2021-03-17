@@ -65,7 +65,28 @@ def inference(args):
             if grad is not None:
                 naive_saliency.append(grad.view(-1))
         naive_saliency = torch.abs(torch.cat(naive_saliency))
-        # print(naive_saliency.shape)
+
+        if i == 0:
+            # oldM in Welford's method (https://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance/)
+            testset_mean_sal_prev = torch.zeros_like(naive_saliency, dtype=torch.float64)
+            testset_mean_sal = naive_saliency / float(i+1)
+            # print(testset_mean_abs_grad)
+            testset_std_sal = (naive_saliency - testset_mean_sal) * (naive_saliency - testset_mean_sal_prev)
+            # print(naive_saliency.shape)
+        else:
+            testset_mean_sal_prev = testset_mean_sal.detach().clone()  # oldM
+            testset_mean_sal += (naive_saliency - testset_mean_abs_grad) / float(i+1)  # update M to the current
+            # print(testset_mean_abs_grad)
+            testset_std_sal += (naive_saliency - testset_mean_sal) * (naive_saliency - testset_mean_sal_prev)  # update variance
+
+    testset_std_sal = testset_std_sal / float(len(samples_batches) - 1)  # Unbiased estimator of variance
+    print('Variance:', testset_std_sal)
+    testset_std_sal = torch.sqrt(testset_std_sal)
+    print('Std:', testset_std_sal)
+    print('Mean:', testset_mean_sal)
+    print('Testset_grads_shape:{}'.format(testset_mean_sal.shape))
+
+    return testset_mean_sal, testset_std_sal
         
 
 if __name__=='__main__':
