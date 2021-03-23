@@ -26,6 +26,12 @@ def filter_samples(model, tokenizer, samples, max_sentence_length, template):
                     )
                     samples_exluded += 1
                     excluded = True
+                if text.count("[MASK]") > 1:
+                    msg += "\tEXCLUDED for having more than one mask: {}\n".format(
+                        masked_sentences
+                    )
+                    samples_exluded += 1
+                    excluded = True
 
             if excluded:
                 pass

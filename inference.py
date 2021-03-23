@@ -11,6 +11,39 @@ from utils import sort_grads
 
 CACHE_DIR = './cache'
 
+def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
+    incorrect_id = []
+    incorrect_predictions = []
+    correct_id = []
+
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
+    for i in range(len(samples_batches)):
+        samples_b = samples_batches[i]
+        sentences_b = sentences_batches[i]
+        gt_b = label_batches[i]
+
+        inputs_b = tokenizer(sentences_b, padding=True, return_tensors='pt')
+        labels_b = tokenizer(gt_b, padding=True, return_tensors='pt')["input_ids"]
+
+        _, mask_inds = torch.where(inputs_b["input_ids"]==103)
+        with torch.no_grad():
+            outputs = model(**inputs_b, labels=labels_b)
+        logits = outputs.logits
+        _, pred = logits.max(dim=2)
+
+        mask_pred = torch.gather(pred, 1, mask_inds.unsqueeze(1))
+        mask_gt = torch.gather(labels_b, 1, mask_inds.unsqueeze(1))
+        correct = mask_pred.eq(mask_gt)
+
+        id_f, _ = torch.where(correct==False)
+        id_t, _ = torch.where(correct==True)
+        incorrect_id.extend(list(id_f.cpu().numpy()))
+        incorrect_predictions.extend(list(mask_pred.view(-1).cpu().numpy()))
+        correct_id.extend(list(id_t.cpu().numpy()))
+
+    return incorrect_id, incorrect_predictions, correct_id
+        
+
 def get_dataset_stats(all_samples, model, tokenizer, args):
     ### run inference
     samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
@@ -59,7 +92,7 @@ if __name__=='__main__':
     parser.add_argument('--bert_model_name', default='bert-base-cased', type=str)
     parser.add_argument('--dataset_name', default='/cmlscratch/manlis/data/LAMA/Squad/test.jsonl', type=str)
     parser.add_argument('--max_seq_length', default=1024, type=int)
-    parser.add_argument('--batch_size', default=1, type=int)
+    parser.add_argument('--batch_size', default=5, type=int)
     parser.add_argument('--aggr', default="naive", type=str, choices=['naive', 'column-wise'])
     args = parser.parse_args()
 
@@ -95,4 +128,5 @@ if __name__=='__main__':
             sample["uuid"] = i
         i += 1
 
-    testset_mean_sal, testset_std_sal = get_dataset_stats(all_samples, model, tokenizer, args)
+    incorrect_id, incorrect_pred, correct_id = test_and_find_incorrect_prediction(all_samples, model, tokenizer, args)
+    print("incorrect: ", len(incorrect_id))
