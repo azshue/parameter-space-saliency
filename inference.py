@@ -2,6 +2,7 @@ import os
 import argparse
 
 import torch
+# torch.set_printoptions(threshold=10_000)
 import transformers
 from transformers import BertForMaskedLM, BertTokenizer, AutoTokenizer, AutoModelForMaskedLM, AutoConfig
 from datasets import load_dataset
@@ -16,7 +17,7 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
     incorrect_predictions = []
     correct_id = []
 
-    samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, 100)
     for i in range(len(samples_batches)):
         samples_b = samples_batches[i]
         sentences_b = sentences_batches[i]
@@ -27,7 +28,12 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
 
         _, mask_inds = torch.where(inputs_b["input_ids"]==103)
         with torch.no_grad():
-            outputs = model(**inputs_b, labels=labels_b)
+            try:
+                outputs = model(**inputs_b, labels=labels_b)
+            except:
+                print(inputs_b)
+                print(labels_b)
+
         logits = outputs.logits
         _, pred = logits.max(dim=2)
 
@@ -46,7 +52,7 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
 
 def get_dataset_stats(all_samples, model, tokenizer, args):
     ### run inference
-    samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, 1)
     for i in range(len(samples_batches)):
         samples_b = samples_batches[i]
         sentences_b = sentences_batches[i]
@@ -86,6 +92,29 @@ def get_dataset_stats(all_samples, model, tokenizer, args):
 
     return testset_mean_sal, testset_std_sal
 
+def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_std, args):
+    saliency_curves = []
+    ### run inference
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
+    for i in range(len(samples_batches)):
+        samples_b = samples_batches[i]
+        sentences_b = sentences_batches[i]
+        gt_b = label_batches[i]
+
+        inputs_b = tokenizer(sentences_b, return_tensors='pt')
+        labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
+
+        outputs = model(**inputs_b, labels=labels_b)
+        loss = outputs.loss
+        logits = outputs.logits
+
+        # compute gradient profile
+        loss.backward()
+        saliency_profile = sort_grads(model, args.aggr)
+
+        saliency_curves.append((saliency_profile - testset_mean) / testset_std)
+
+    return torch.stack(saliency_curves)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Saliency curve comparison')
@@ -93,7 +122,7 @@ if __name__=='__main__':
     parser.add_argument('--dataset_name', default='/cmlscratch/manlis/data/LAMA/Squad/test.jsonl', type=str)
     parser.add_argument('--max_seq_length', default=1024, type=int)
     parser.add_argument('--batch_size', default=5, type=int)
-    parser.add_argument('--aggr', default="naive", type=str, choices=['naive', 'column-wise'])
+    parser.add_argument('--aggr', default="column-wise", type=str, choices=['naive', 'column-wise'])
     args = parser.parse_args()
 
     ### set up the model
@@ -128,5 +157,14 @@ if __name__=='__main__':
             sample["uuid"] = i
         i += 1
 
-    incorrect_id, incorrect_pred, correct_id = test_and_find_incorrect_prediction(all_samples, model, tokenizer, args)
-    print("incorrect: ", len(incorrect_id))
+
+    ### unit tests
+
+    # incorrect_id, incorrect_pred, correct_id = test_and_find_incorrect_prediction(all_samples, model, tokenizer, args)
+    # print("incorrect: ", len(incorrect_id))
+
+    # testset_mean_sal, testset_std_sal = get_dataset_stats(all_samples, model, tokenizer, args)
+    # entries = torch.where(testset_std_sal<1e-14, torch.tensor(1.0), torch.tensor(0.0))
+    # print(torch.sum(entries))
+
+    # saliency_curves = sample_saliency_curves(all_samples, model, tokenizer, )
