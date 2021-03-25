@@ -15,7 +15,16 @@ def filter_samples(model, tokenizer, samples, max_sentence_length, template):
     samples_exluded = 0
     for sample in samples:
         excluded = False
-        if "obj_label" in sample and "sub_label" in sample:
+        if "obj_label" in sample or "sub_label" in sample:
+            # obj_label_ids = tokenizer(sample["obj_label"])
+
+            # if obj_label_ids:
+            #     recostructed_word = " ".join(
+            #         [model.vocab[x] for x in obj_label_ids]
+            #     ).strip()
+            # else:
+            #     recostructed_word = None
+
             excluded = False
             if not template or len(template) == 0:
                 masked_sentences = sample["masked_sentences"]
@@ -26,11 +35,15 @@ def filter_samples(model, tokenizer, samples, max_sentence_length, template):
                     )
                     samples_exluded += 1
                     excluded = True
-                if text.count("[MASK]") > 1:
+                elif text.count("[MASK]") > 1:
                     msg += "\tEXCLUDED for having more than one mask: {}\n".format(
                         masked_sentences
                     )
                     samples_exluded += 1
+                    excluded = True
+                elif sample['obj_label'] not in tokenizer.get_vocab():
+                    msg += "\tEXCLUDED object label {} not in vocab subset\n".format(sample['obj_label'])
+                    samples_exluded+=1
                     excluded = True
 
             if excluded:
