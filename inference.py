@@ -1,5 +1,6 @@
 import os
 import argparse
+import time
 
 import torch
 # torch.set_printoptions(threshold=10_000)
@@ -8,7 +9,7 @@ from transformers import BertForMaskedLM, BertTokenizer, AutoTokenizer, AutoMode
 from datasets import load_dataset
 
 from data import load_file, filter_samples, apply_template, batchify
-from utils import sort_grads
+from utils import sort_grads, AverageMeter
 
 CACHE_DIR = './cache'
 
@@ -48,15 +49,22 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
         correct_id.extend(list(id_t.cpu().numpy()))
 
     return incorrect_id, incorrect_predictions, correct_id
-        
 
+        
 def get_dataset_stats(all_samples, model, tokenizer, args):
     ### run inference
     samples_batches, sentences_batches, label_batches = batchify(all_samples, 1)
+
+    iter_time = AverageMeter()
+    end = time.time()
     for i in range(len(samples_batches)):
         samples_b = samples_batches[i]
         sentences_b = sentences_batches[i]
         gt_b = label_batches[i]
+
+        # zero-grad
+        for param in model.parameters():
+            param.grad = None
 
         inputs_b = tokenizer(sentences_b, return_tensors='pt')
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
@@ -83,6 +91,16 @@ def get_dataset_stats(all_samples, model, tokenizer, args):
             # print(testset_mean_abs_grad)
             testset_std_sal += (saliency_profile - testset_mean_sal) * (saliency_profile - testset_mean_sal_prev)  # update variance
 
+        iter_time.update(time.time() - end)
+        end = time.time()
+        if (i)%50 == 0:
+            remain_time = (len(samples_batches) - i - 1) * iter_time.avg
+            t_m, t_s = divmod(remain_time, 60)
+            t_h, t_m = divmod(t_m, 60)
+            remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
+            print("Iter: [{:d}/{:d}]\t iter time: {iter_time.val: .3f}\t remain time: {remain_time}".format(
+                            i+1, len(samples_batches), iter_time=iter_time, remain_time=remain_time))
+
     testset_std_sal = testset_std_sal / float(len(samples_batches) - 1)  # Unbiased estimator of variance
     print('Variance:', testset_std_sal)
     testset_std_sal = torch.sqrt(testset_std_sal)
@@ -96,10 +114,17 @@ def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_
     saliency_curves = []
     ### run inference
     samples_batches, sentences_batches, label_batches = batchify(all_samples, args.batch_size)
+    
+    iter_time = AverageMeter()
+    end = time.time()
     for i in range(len(samples_batches)):
         samples_b = samples_batches[i]
         sentences_b = sentences_batches[i]
         gt_b = label_batches[i]
+
+        # zero-grad
+        for param in model.parameters():
+            param.grad = None
 
         inputs_b = tokenizer(sentences_b, return_tensors='pt')
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
@@ -112,7 +137,50 @@ def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_
         loss.backward()
         saliency_profile = sort_grads(model, args.aggr)
 
+
         saliency_curves.append((saliency_profile - testset_mean) / testset_std)
+
+        iter_time.update(time.time() - end)
+        end = time.time()
+        if (i+1)%50 == 0:
+            remain_time = (len(samples_batches) - i - 1) * iter_time.avg
+            t_m, t_s = divmod(remain_time, 60)
+            t_h, t_m = divmod(t_m, 60)
+            remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
+            print("Iter: [{:d}/{:d}]\t iter time: {iter_time.val: .3f}\t remain time: {remain_time}".format(
+                            i+1, len(samples_batches), iter_time=iter_time, remain_time=remain_time))
+
+    return torch.stack(saliency_curves)
+
+
+def debug_padding(all_samples, model, tokenizer, len_samples, batch_size, args):
+    saliency_curves = []
+    ### run inference
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, batch_size)
+    for i in range(len_samples):
+        samples_b = samples_batches[i]
+        sentences_b = sentences_batches[i]
+        gt_b = label_batches[i]
+
+        # zero-grad
+        for param in model.parameters():
+            param.grad = None
+
+        inputs_b = tokenizer(sentences_b, padding='max_length', max_length=10, return_tensors='pt')
+        labels_b = tokenizer(gt_b, padding='max_length', max_length=10, return_tensors='pt')["input_ids"]
+        print('inputs:', inputs_b)
+        print('labels_b:', labels_b)
+
+
+        outputs = model(**inputs_b, labels=labels_b)
+        loss = outputs.loss
+        logits = outputs.logits
+
+        # compute gradient profile
+        loss.backward()
+        saliency_profile = sort_grads(model, args.aggr)
+
+        saliency_curves.append(saliency_profile)
 
     return torch.stack(saliency_curves)
 
@@ -167,4 +235,9 @@ if __name__=='__main__':
     # entries = torch.where(testset_std_sal<1e-14, torch.tensor(1.0), torch.tensor(0.0))
     # print(torch.sum(entries))
 
-    # saliency_curves = sample_saliency_curves(all_samples, model, tokenizer, )
+    # non_padded_curves = debug_padding(all_samples, model, tokenizer, 1, 1, args)
+    # padded_curves = debug_padding(all_samples, model, tokenizer, 1, 1, args)
+    # print(non_padded_curves.size())
+    # print(padded_curves.size())
+    # print(torch.mean(non_padded_curves, dim=0))
+    # print(padded_curves)
