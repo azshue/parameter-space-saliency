@@ -72,6 +72,9 @@ if __name__ == '__main__':
         cache_dir=CACHE_DIR,
     )
     model.resize_token_embeddings(len(tokenizer))
+    # for name, param in model.named_parameters():
+    #     print("{}: {}".format(name, param.size()))
+    # raise NotImplementedError()
 
     # load data TODO: add an outer loop for relations
     data = load_file(args.dataset_name)
@@ -123,7 +126,7 @@ if __name__ == '__main__':
                     'testset_std': testset_std}, stat_file)
 
     # saliency curves
-    saliency_file = './{:s}_{:s}_saliency_profile_{:s}.pth'.format(Path(os.path.dirname(args.dataset_name)).stem, args.aggr, args.bert_model_name)
+    saliency_file = './{:s}_{:s}_{:s}_saliency_profile_{:s}.pth'.format(Path(os.path.dirname(args.dataset_name)).stem, Path(args.dataset_name).stem, args.aggr, args.bert_model_name)
     if os.path.isfile(saliency_file):
         saliency_curves = torch.load(saliency_file)
     else:
@@ -134,7 +137,7 @@ if __name__ == '__main__':
 
     closest_idx_lst = closest_k_saliency(saliency_curves, saliency_curves, args.k_closest, lst=args.chosen_samples)
 
-    print(closest_idx_lst[:, -1])
+    print(closest_idx_lst)
     samples_batches, sentences_batches, label_batches = batchify(all_samples, 1)
     for ind, res in enumerate(closest_idx_lst):
         print("reference sample: {}".format(label_batches[args.chosen_samples[ind]]))
