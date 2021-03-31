@@ -44,9 +44,9 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
 
         id_f, _ = torch.where(correct==False)
         id_t, _ = torch.where(correct==True)
-        incorrect_id.extend(list(id_f.cpu().numpy()))
+        incorrect_id.extend(list(id_f.cpu().numpy() + i * 100))
         incorrect_predictions.extend(list(mask_pred.view(-1).cpu().numpy()))
-        correct_id.extend(list(id_t.cpu().numpy()))
+        correct_id.extend(list(id_t.cpu().numpy() + i * 100))
 
     return incorrect_id, incorrect_predictions, correct_id
 
