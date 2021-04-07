@@ -26,6 +26,8 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
 
         inputs_b = tokenizer(sentences_b, padding=True, return_tensors='pt')
         labels_b = tokenizer(gt_b, padding=True, return_tensors='pt')["input_ids"]
+        labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
+
 
         _, mask_inds = torch.where(inputs_b["input_ids"]==103)
         with torch.no_grad():
@@ -68,6 +70,8 @@ def get_dataset_stats(all_samples, model, tokenizer, args):
 
         inputs_b = tokenizer(sentences_b, return_tensors='pt')
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
+        labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
+
 
         outputs = model(**inputs_b, labels=labels_b)
         loss = outputs.loss
@@ -128,6 +132,7 @@ def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_
 
         inputs_b = tokenizer(sentences_b, return_tensors='pt')
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
+        labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
 
         outputs = model(**inputs_b, labels=labels_b)
         loss = outputs.loss
@@ -153,10 +158,10 @@ def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_
     return torch.stack(saliency_curves)
 
 
-def debug_padding(all_samples, model, tokenizer, len_samples, batch_size, args):
+def debug_padding(all_samples, model, tokenizer, len_samples, pad, args):
     saliency_curves = []
     ### run inference
-    samples_batches, sentences_batches, label_batches = batchify(all_samples, batch_size)
+    samples_batches, sentences_batches, label_batches = batchify(all_samples, 1)
     for i in range(len_samples):
         samples_b = samples_batches[i]
         sentences_b = sentences_batches[i]
@@ -166,8 +171,9 @@ def debug_padding(all_samples, model, tokenizer, len_samples, batch_size, args):
         for param in model.parameters():
             param.grad = None
 
-        inputs_b = tokenizer(sentences_b, padding='max_length', max_length=10, return_tensors='pt')
-        labels_b = tokenizer(gt_b, padding='max_length', max_length=10, return_tensors='pt')["input_ids"]
+        inputs_b = tokenizer(sentences_b, padding='max_length' if pad==True else False, max_length=10, return_tensors='pt')
+        labels_b = tokenizer(gt_b, padding='max_length' if pad==True else False, max_length=10, return_tensors='pt')["input_ids"]
+        labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
         print('inputs:', inputs_b)
         print('labels_b:', labels_b)
 
@@ -235,9 +241,7 @@ if __name__=='__main__':
     # entries = torch.where(testset_std_sal<1e-14, torch.tensor(1.0), torch.tensor(0.0))
     # print(torch.sum(entries))
 
-    # non_padded_curves = debug_padding(all_samples, model, tokenizer, 1, 1, args)
-    # padded_curves = debug_padding(all_samples, model, tokenizer, 1, 1, args)
-    # print(non_padded_curves.size())
-    # print(padded_curves.size())
-    # print(torch.mean(non_padded_curves, dim=0))
-    # print(padded_curves)
+    non_padded_curves = debug_padding(all_samples, model, tokenizer, 1, False, args)
+    padded_curves = debug_padding(all_samples, model, tokenizer, 1, True, args)
+    assert torch.is_nonzero(non_padded_curves.sum())
+    assert torch.equal(non_padded_curves, padded_curves)
