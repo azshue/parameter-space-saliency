@@ -6,7 +6,7 @@ import torch
 # torch.set_printoptions(threshold=10_000)
 import transformers
 from transformers import BertForMaskedLM, BertTokenizer, AutoTokenizer, AutoModelForMaskedLM, AutoConfig
-from datasets import load_dataset
+# from datasets import load_dataset
 
 from data import load_file, filter_samples, apply_template, batchify
 from utils import sort_grads, AverageMeter
@@ -28,11 +28,10 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
         labels_b = tokenizer(gt_b, padding=True, return_tensors='pt')["input_ids"]
         labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
 
-
-        _, mask_inds = torch.where(inputs_b["input_ids"]==103)
+        _, mask_inds = torch.where(inputs_b["input_ids"]==tokenizer.mask_token_id)
         with torch.no_grad():
             try:
-                outputs = model(**inputs_b, labels=labels_b)
+                outputs = model(**inputs_b.to(args.device), labels=labels_b.to(args.device))
             except:
                 print(inputs_b)
                 print(labels_b)
@@ -72,8 +71,7 @@ def get_dataset_stats(all_samples, model, tokenizer, args):
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
         labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
 
-
-        outputs = model(**inputs_b, labels=labels_b)
+        outputs = model(**inputs_b.to(args.device), labels=labels_b.to(args.device))
         loss = outputs.loss
         logits = outputs.logits
 
@@ -134,7 +132,7 @@ def sample_saliency_curves(all_samples, model, tokenizer, testset_mean, testset_
         labels_b = tokenizer(gt_b, return_tensors='pt')["input_ids"]
         labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
 
-        outputs = model(**inputs_b, labels=labels_b)
+        outputs = model(**inputs_b.to(args.device), labels=labels_b.to(args.device))
         loss = outputs.loss
         logits = outputs.logits
 
@@ -178,7 +176,7 @@ def debug_padding(all_samples, model, tokenizer, len_samples, pad, args):
         print('labels_b:', labels_b)
 
 
-        outputs = model(**inputs_b, labels=labels_b)
+        outputs = model(**inputs_b.to(args.device), labels=labels_b.to(args.device))
         loss = outputs.loss
         logits = outputs.logits
 
@@ -193,7 +191,7 @@ def debug_padding(all_samples, model, tokenizer, len_samples, pad, args):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Saliency curve comparison')
     parser.add_argument('--bert_model_name', default='bert-base-cased', type=str)
-    parser.add_argument('--dataset_name', default='/cmlscratch/manlis/data/LAMA/Squad/test.jsonl', type=str)
+    parser.add_argument('--dataset_name', default='/cmlscratch/manlis/data/lama/Squad/test.jsonl', type=str)
     parser.add_argument('--max_seq_length', default=1024, type=int)
     parser.add_argument('--batch_size', default=5, type=int)
     parser.add_argument('--aggr', default="column-wise", type=str, choices=['naive', 'column-wise'])

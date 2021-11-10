@@ -14,12 +14,12 @@ def sort_grads(model, method):
                 if "Norm" not in name:
                     # print(name)
                     if len(grad.size()) == 1:
-                        grads.append(grad.view(-1).cpu())
+                        grads.append(grad.detach().abs().view(-1).cpu())
                     elif len(grad.size()) == 2:
-                        grads.append(grad.mean(-1).view(-1).cpu())
+                        grads.append(grad.detach().abs().mean(-1).view(-1).cpu())
         elif method == 'naive':
-            grads.append(grad.view(-1).cpu())
-    grads = torch.abs(torch.cat(grads))
+            grads.append(grad.detach().abs().view(-1).cpu())
+    grads = torch.cat(grads)
     return grads
 
 
