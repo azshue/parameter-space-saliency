@@ -29,6 +29,7 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
         labels_b[inputs_b["input_ids"] != tokenizer.mask_token_id] = -100 # only calculate loss on masked tokens
 
         _, mask_inds = torch.where(inputs_b["input_ids"]==tokenizer.mask_token_id)
+        mask_inds = mask_inds.to(args.device)
         with torch.no_grad():
             try:
                 outputs = model(**inputs_b.to(args.device), labels=labels_b.to(args.device))
@@ -40,7 +41,7 @@ def test_and_find_incorrect_prediction(all_samples, model, tokenizer, args):
         _, pred = logits.max(dim=2)
 
         mask_pred = torch.gather(pred, 1, mask_inds.unsqueeze(1))
-        mask_gt = torch.gather(labels_b, 1, mask_inds.unsqueeze(1))
+        mask_gt = torch.gather(labels_b.to(args.device), 1, mask_inds.unsqueeze(1))
         correct = mask_pred.eq(mask_gt)
 
         id_f, _ = torch.where(correct==False)

@@ -113,7 +113,7 @@ if __name__ == '__main__':
     if args.chosen_samples == "[]":
         random.seed(args.seed)
         np.random.seed(args.seed)
-        args.chosen_samples = list(np.random.choice(correct_id, args.num_samples)) + list(np.random.choice(incorrect_id, args.num_samples)) 
+        args.chosen_samples = list(np.random.choice(incorrect_id, args.num_samples)) 
     else:
         string_list = args.chosen_samples
         lst = string_list.strip('][').split(',') 

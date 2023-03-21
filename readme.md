@@ -26,5 +26,4 @@ The default value of `chosen_samples` is empty, in which case 6 random samples w
 
 
 ### *Other datasets*
-Currently I've only tested the code on **Squad** and **ConceptNet**. For a quicker run, use the **Squad** dataset, which only has ~300 samples. **ConceptNet** has ~30,000 samples, the computation of saliency profiles can take hours to finish, but the pattern in nearest neighbors may be more representative due to the large sample size. 
-
+Currently I've only tested the code on **Squad** and **ConceptNet**. For a quicker run, use the **Squad** dataset, which only has ~300 samples. **ConceptNet** has ~30,000 samples, the computation of saliency profiles can take about 30 minutes to finish, but the pattern in nearest neighbors may be more representative because of the larger sample size. 
